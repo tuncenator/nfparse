@@ -36,9 +36,9 @@ show_spinner()
         printf " [%c]  " "${spinstr}"
         spinstr=${temp}${spinstr%"${temp}"}
         sleep "${delay}"
-        printf "\b\b\b\b\b\b"
+        printf "\\b\\b\\b\\b\\b\\b"
     done
-    printf "    \b\b\b\b"
+    printf "    \\b\\b\\b\\b"
     printf '\n'
 }
 
@@ -67,7 +67,7 @@ list_set(){
     TYPE=$1
     COUNT=$2
     STARTTIME=$(date +%s)
-    option=$(list_set_rot $INPUT)
+    option=$(list_set_rot "$INPUT")
     case $TYPE in
         spa )
             typeopts="-o extended -A srcport -O flows -n $COUNT"
@@ -138,17 +138,17 @@ list_set(){
             # Takes custom instead of list type. Allows typeopts to be given dynamically.
             CPARAMS="$2"
             typeopts="$CPARAMS"
-            filext=$(echo ${CPARAMS// /_})
+            filext=${CPARAMS// /_}
             TEMP="${MAINTEMP}/list_${filext}"
             ;;
     esac
-    nfdump $option $INPUT $typeopts > $TEMP
+    nfdump "$option" "$INPUT" $typeopts > "$TEMP"
     used_command="nfdump $option $INPUT $typeopts"
     echo
-    cat $TEMP | tee ${MAINTEMP}/last_list
+    tee ${MAINTEMP}/last_list < "$TEMP"
     ENDTIME=$(date +%s)
-    echo "Time to complete: $(( ENDTIME - STARTTIME )) seconds." | tee -a $TEMP
-    echo "Command: $used_command" | tee -a $TEMP
+    echo "Time to complete: $(( ENDTIME - STARTTIME )) seconds." | tee -a "$TEMP"
+    echo "Command: $used_command" | tee -a "$TEMP"
 }
 
 ask_count(){
@@ -158,12 +158,12 @@ ask_count(){
     # ask_count 30
 
     DEFAULT=$1
-    read -p "List item count [${DEFAULT}]: " COUNT
+    read -rp "List item count [${DEFAULT}]: " COUNT
     if [[ -z $COUNT ]]; then
         COUNT=$DEFAULT
-        echo $COUNT
+        echo "$COUNT"
     else
-        echo $COUNT
+        echo "$COUNT"
     fi
 }
 
@@ -173,16 +173,16 @@ list_to_ip(){
     # list_to_ip "$FILE" where file is of nfdump out format.
 
     FILE=$1
-    SRC=$(cat "$FILE" | grep -vi ^[a-z] | sed -n 3p | awk -F' ' '{print $5}' | awk -F':' '{print $1}')
-    DST=$(cat "$FILE" | grep -vi ^[a-z] | sed -n 3p | awk -F' ' '{print $7}' | awk -F':' '{print $1}')
+    SRC=$(grep -vi "^[a-z]" "$FILE" | sed -n 3p | awk -F' ' '{print $5}' | awk -F':' '{print $1}')
+    DST=$(grep -vi "^[a-z]" "$FILE" | sed -n 3p | awk -F' ' '{print $7}' | awk -F':' '{print $1}')
     if [[ $SRC =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [[ $SRC != '0.0.0.0' ]] && [[ $DST =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [[ $DST != '0.0.0.0' ]]; then
-        IPLIST=$(cat "$FILE" | grep -vi ^[a-z] | awk -F' ' '{print $5,7}' | awk -F':' '{print $1}' | awk '($1+0)>0 && ($1+0)<=255')
+        IPLIST=$(grep -vi "^[a-z]" "$FILE" | awk -F' ' '{print $5,7}' | awk -F':' '{print $1}' | awk '($1+0)>0 && ($1+0)<=255')
         echo "" > ${MAINTEMP}/last_ip
     elif [[ $SRC =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [[ $SRC != '0.0.0.0' ]]; then
-        IPLIST=$(cat "$FILE" | grep -vi ^[a-z] | awk -F' ' '{print $5}' | awk -F':' '{print $1}' | awk '($1+0)>0 && ($1+0)<=255')
+        IPLIST=$(grep -vi "^[a-z]" "$FILE" | awk -F' ' '{print $5}' | awk -F':' '{print $1}' | awk '($1+0)>0 && ($1+0)<=255')
         echo "$IPLIST" > ${MAINTEMP}/last_ip
     elif [[ $DST =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && [[ $DST != '0.0.0.0' ]]; then
-        IPLIST=$(cat "$FILE" | grep -vi ^[a-z] | awk -F' ' '{print $7}' | awk -F':' '{print $1}' | awk '($1+0)>0 && ($1+0)<=255')
+        IPLIST=$(grep -vi "^[a-z]" "$FILE" | awk -F' ' '{print $7}' | awk -F':' '{print $1}' | awk '($1+0)>0 && ($1+0)<=255')
         echo "$IPLIST" > ${MAINTEMP}/last_ip
     else
         rm -f ${MAINTEMP}/last_ip
@@ -208,26 +208,26 @@ list_get(){
 
     if [[ $TYPE == "CUSTOM" ]]; then
         echo "Example: -o extended -a -n 20 (q to quit)"
-        read -p "Provide options: " CPARAMS
+        read -rp "Provide options: " CPARAMS
         if [[ $CPARAMS == "q" ]]; then
             menu
         fi
-        filext=$(echo ${CPARAMS// /_})
+        filext=${CPARAMS// /_}
         FILE="${TEMP}/list_${filext}"
     else
         FILE="${TEMP}/list_${PARAM}_${COUNT}"
     fi
     if [[ -f "$FILE" ]]; then
-        cat "$FILE" | tee ${MAINTEMP}/last_list
+        tee ${MAINTEMP}/last_list < "$TEMP"
     else
         if [[ $TYPE == "CUSTOM" ]]; then
             list_set CUSTOM "$CPARAMS"
         else
-            list_set $PARAM $COUNT
+            list_set "$PARAM" "$COUNT"
         fi
     fi
 
-    list_to_ip $FILE
+    list_to_ip "$FILE"
 
     for f in ${MAINTEMP}/wll*; do
         [ -e "$f" ] && rm -f ${MAINTEMP}/wll*
@@ -248,7 +248,7 @@ list_last(){
     # list_last
 
     printf '\n'
-    cat ${MAINTEMP}/last_list | grep -vi ^[a-z]
+    grep -vi "^[a-z]" ${MAINTEMP}/last_list
 }
 
 #ipinfo_set(){
@@ -304,17 +304,21 @@ whois_query_set(){
     if [[ ! -d "${MAINTEMP}/whois" ]]; then
         mkdir "${MAINTEMP}/whois"
     fi
-    echo begin > $TEMP
-    echo prefix >> $TEMP
-    echo countrycode >> $TEMP
-    echo "$IPLIST" >> $TEMP
-    echo end >> $TEMP
+
+    cat <<EOT > "$TEMP"
+begin
+prefix
+countrycode
+$IPLIST
+end
+EOT
+
     if [[ $TYPE == "BLOCK" ]]; then
-        ncat whois.cymru.com 43 < $TEMP | tail -n +2 | sort -b -u -t'|' -k3 | awk '!($2="")' | awk '!($2="")' > ${TEMP}_processed
+        ncat whois.cymru.com 43 < "$TEMP" | tail -n +2 | sort -b -u -t'|' -k3 | awk '!($2="")' | awk '!($2="")' > "${TEMP}"_processed
     elif [[ $TYPE == "ADDRESS" ]]; then
-        ncat whois.cymru.com 43 < $TEMP | tail -n +2 > ${TEMP}_processed
+        ncat whois.cymru.com 43 < "$TEMP" | tail -n +2 > "${TEMP}"_processed
     fi
-    cat ${TEMP}_processed | tee ${MAINTEMP}/whois/last
+    tee ${MAINTEMP}/whois/last < "${TEMP}"_processed
 }
 
 whois_query_get(){
@@ -331,9 +335,9 @@ whois_query_get(){
     TYPE=$3
     if [[ -f "$TEMP" ]]; then
         printf '\n'
-        cat "$TEMP" | tee ${MAINTEMP}/whois/last
+        tee ${MAINTEMP}/whois/last < "$TEMP"
     else
-        whois_query_set $TEMP "$IPLIST" $TYPE
+        whois_query_set "$TEMP" "$IPLIST" "$TYPE"
     fi
 }
 
@@ -345,7 +349,7 @@ whois_search(){
 
     WORD=$1
     COUNT=$2
-    list_get sia $COUNT &> /dev/null
+    list_get sia "$COUNT" &> /dev/null
     IPLIST=$(cat ${MAINTEMP}/last_ip)
     whois_query_get "${MAINTEMP}/whois/sia_${COUNT}" "$IPLIST" ADDRESS &> /dev/null
     LIST="${MAINTEMP}/whois/sia_${COUNT}_processed"
@@ -362,9 +366,9 @@ block_owner_set(){
     block=$1
     TEMP="${MAINTEMP}/whois/${block}"
     list=$(list_get sia 100)
-    block_ips=$(echo "$list" | grep -vi ^[a-z] | awk -F' ' '{print $5}' | awk -F':' '{print $1}' | awk '($1+0)>0 && ($1+0)<=255' | grep "^${block}")
+    block_ips=$(grep -vi "^[a-z]" "$list" | awk -F' ' '{print $5}' | awk -F':' '{print $1}' | awk '($1+0)>0 && ($1+0)<=255' | grep "^${block}")
     printf '\n'
-    whois_query_get $TEMP "$block_ips" BLOCK
+    whois_query_get "$TEMP" "$block_ips" BLOCK
 }
 
 block_owner_get(){
@@ -377,7 +381,7 @@ block_owner_get(){
     TEMP="${MAINTEMP}/whois/${block}_processed"
     if [[ -f "$TEMP" ]]; then
         printf '\n'
-        cat "$TEMP" | tee ${MAINTEMP}/whois/last
+        tee ${MAINTEMP}/whois/last < "$TEMP"
     else
         block_owner_set "$block"
     fi
@@ -391,7 +395,7 @@ ip_owner_set(){
 
     IP=$1
     TEMP="${MAINTEMP}/whois/${IP}"
-    whois_query_get $TEMP "$IP" ADDRESS
+    whois_query_get "$TEMP" "$IP" ADDRESS
 }
 
 ip_owner_get(){
@@ -406,7 +410,7 @@ ip_owner_get(){
         printf '\n'
         cat "$TEMP"
     else
-        ip_owner_set $TEMP "$IP"
+        ip_owner_set "$TEMP" "$IP"
     fi
 }
 
@@ -425,21 +429,21 @@ date_interval(){
     # date_interval
 
     if [[ $INPUT == *":"* ]] || [[ -d $INPUT ]]; then
-        file1=$(echo $INPUT | awk -F':' '{print $1}')
-        date1_unf=$(echo $file1 | awk -F'.' '{print $2}')
-        date1=$(echo $date1_unf | sed -r 's/^.{4}/&-/;:a; s/([-:])(..)\B/\1\2:/;ta;s/:/-/;s/:/ /')
-        file2=$(echo $INPUT | awk -F':' '{print $2}')
+        file1=$(echo "$INPUT" | awk -F':' '{print $1}')
+        date1_unf=$(echo "$file1" | awk -F'.' '{print $2}')
+        date1=$(echo "$date1_unf" | sed -r 's/^.{4}/&-/;:a; s/([-:])(..)\B/\1\2:/;ta;s/:/-/;s/:/ /')
+        file2=$(echo "$INPUT" | awk -F':' '{print $2}')
         date2=$(stat -c %Y "$file2" | awk '{print strftime("%F %H:%M", $1)}')
-        printf "From: $date1\nTo: $date2\n" | column -t
+        printf "From: %s\\nTo: %s\\n" "$date1" "$date2" | column -t
     elif [[ -f $INPUT ]]; then
         date2=$(stat -c %Y "$INPUT" | awk '{print strftime("%F %H:%M", $1)}')
-        date1_unf=$(echo $INPUT | awk -F'.' '{print $2}')
+        date1_unf=$(echo "$INPUT" | awk -F'.' '{print $2}')
         if [[ $date1_unf == 'current' ]]; then
-            date1=$(echo $date2 | awk '{split($2, a, ":"); printf "%s %s:%02d", $1, a[1],int(a[2]/5)*5}')
+            date1=$(echo "$date2" | awk '{split($2, a, ":"); printf "%s %s:%02d", $1, a[1],int(a[2]/5)*5}')
         else
-            date1=$(echo $date1_unf | sed -r 's/^.{4}/&-/;:a; s/([-:])(..)\B/\1\2:/;ta;s/:/-/;s/:/ /')
+            date1=$(echo "$date1_unf" | sed -r 's/^.{4}/&-/;:a; s/([-:])(..)\B/\1\2:/;ta;s/:/-/;s/:/ /')
         fi
-        printf "From: $date1\nTo: $date2\n" | column -t
+        printf "From: %s\\nTo: %s\\n" "$date1" "$date2" | column -t
     fi
 }
 
@@ -451,10 +455,10 @@ top_blocks(){
     STARTTIME=$(date +%s)
     COUNT=$1
     list=$(list_get sia 100)
-    top_offending_blocks=$(echo "$list" | grep -vi ^[a-z] | awk -F' ' '{print $5}' | awk -vOFS='.' -F'.' '{print $1,$2}' | awk '($1+0)>0 && ($1+0)<=255' | sort -n | uniq -c | sort -nr | head -n $COUNT)
+    top_offending_blocks=$(grep -vi "^[a-z]" "$list" | awk -F' ' '{print $5}' | awk -vOFS='.' -F'.' '{print $1,$2}' | awk '($1+0)>0 && ($1+0)<=255' | sort -n | uniq -c | sort -nr | head -n "$COUNT")
     date_interval
     echo
-    printf "$top_offending_blocks\n"| nl -w 2 | column -t
+    printf "%s\\n" "$top_offending_blocks"| nl -w 2 | column -t
     ENDTIME=$(date +%s)
     echo "Time to complete: $(( ENDTIME - STARTTIME )) seconds."
     echo
@@ -472,7 +476,7 @@ top_blocks(){
                 result=$(block_owner_get "$ipsel")
                 entrap "$result"
                 echo
-                top_blocks $COUNT
+                top_blocks "$COUNT"
                 break
                 ;;
         esac
@@ -514,7 +518,7 @@ quick_lists(){
             "Source Port Aggregated" )
                 title "Source Port Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get spa $COUNT &
+                list_get spa "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break;;
@@ -522,7 +526,7 @@ quick_lists(){
             "Destination Port Aggregated" )
                 title "Destination Port Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get dpa $COUNT &
+                list_get dpa "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break
@@ -531,7 +535,7 @@ quick_lists(){
             "Source IP Aggregated" )
                 title "Source IP Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get sia $COUNT &
+                list_get sia "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break
@@ -540,7 +544,7 @@ quick_lists(){
             "Destination IP Aggregated" )
                 title "Destination IP Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get dia $COUNT &
+                list_get dia "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break
@@ -549,7 +553,7 @@ quick_lists(){
             "Source bps Aggregated" )
                 title "Source bps Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get sbps $COUNT &
+                list_get sbps "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break
@@ -558,7 +562,7 @@ quick_lists(){
             "Destination bps Aggregated" )
                 title "Destination bps Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get dbps $COUNT &
+                list_get dbps "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break
@@ -567,7 +571,7 @@ quick_lists(){
             "Source Bytes Aggregated" )
                 title "Source Bytes Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get sbyt $COUNT &
+                list_get sbyt "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break
@@ -576,7 +580,7 @@ quick_lists(){
             "Destination Bytes Aggregated" )
                 title "Destination Bytes Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get dbyt $COUNT &
+                list_get dbyt "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break
@@ -585,7 +589,7 @@ quick_lists(){
             "Source IP to Destination Port Aggregated" )
                 title "Source IP to Destination Port Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get sidpa $COUNT &
+                list_get sidpa "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break
@@ -594,7 +598,7 @@ quick_lists(){
             "Destination IP - Destination Port Aggregated" )
                 title "Destination IP to Destination Port Aggregated"
                 COUNT=$(ask_count $DEFAULT_COUNT)
-                list_get didpa $COUNT &
+                list_get didpa "$COUNT" &
                 show_spinner "$!"
                 quick_lists
                 break
@@ -605,7 +609,7 @@ quick_lists(){
                 title "Filter Last List"
                 FLLLIST=$(list_last)
                 FLLRESULT=$(list_grep "$FLLLIST" "quick_lists")
-                echo "$FLLRESULT" > ${MAINTEMP}/last_list
+                "$FLLRESULT" > ${MAINTEMP}/last_list
                 list_to_ip ${MAINTEMP}/last_list
                 printf '\n'
                 entrap "$FLLRESULT"
@@ -616,9 +620,9 @@ quick_lists(){
 
             "WHOIS Last List" )
                 # Queries the last nfdump query for WHOIS results.
-                WLLTEMP=$(find ${MAINTEMP} -printf "%f\n" | grep wll* )
-                WLLTYPE=$(echo $WLLTEMP | awk -F'_' '{print $2}')
-                WLLCOUNT=$(echo $WLLTEMP | awk -F'_' '{print $3}')
+                WLLTEMP=$(find ${MAINTEMP} -printf "%f\\n" | grep wll* )
+                WLLTYPE=$(echo "$WLLTEMP" | awk -F'_' '{print $2}')
+                WLLCOUNT=$(echo "$WLLTEMP" | awk -F'_' '{print $3}')
                 WLLWTEMP="${MAINTEMP}/whois/${WLLTYPE}_${WLLCOUNT}"
                 WLLWIPLIST=$(cat ${MAINTEMP}/last_ip)
                 echo
@@ -627,7 +631,7 @@ quick_lists(){
                     WLLRESULT=$(printf '\n' && whois_query_get "$WLLWTEMP" "$WLLWIPLIST" ADDRESS)
                     entrap "$WLLRESULT"
                 else
-                    printf "List has no IP addresses.\n\n"
+                    printf "List has no IP addresses.\\n\\n"
                 fi
                 quick_lists
                 break
@@ -639,8 +643,8 @@ quick_lists(){
                 FLWLIST=$(whois_last)
                 echo "Example: VeriTeknik"
                 FLWRESULT=$(list_grep "$FLWLIST" "quick_lists")
-                echo "$FLWRESULT" > ${MAINTEMP}/whois/last
-                printf "\n"
+                "$FLWRESULT" > ${MAINTEMP}/whois/last
+                printf '\n'
                 entrap "$FLWRESULT"
                 printf '\n'
                 quick_lists
@@ -674,7 +678,7 @@ repeat(){
 
     str=$1
     num=$2
-    printf "%0.s${str}" $(seq 1 $num)
+    printf "%0.s${str}" $(seq 1 "$num")
 }
 
 list_grep(){
@@ -687,7 +691,7 @@ list_grep(){
 
     SEARCH=$1
     UP=$2
-    read -p "grep by (q to quit): " TERM
+    read -rp "grep by (q to quit): " TERM
     TERM1=$(echo "$TERM" | awk -F' ' '{print$1}')
     TERM2=$(echo "$TERM" | awk -F' ' '{print$2}')
     if [[ "$TERM" == "q" ]]; then
@@ -736,32 +740,32 @@ title(){
     if [[ -z $3 ]] && [[ -z $2 ]]; then
         SIDE='|'
     elif [[ -z $3 ]] && [[ ! -z $2 ]]; then
-        SIDE=$(echo $DASH)
+        SIDE="$DASH"
     fi
 
     if [[ -z $4 ]] && [[ -z $2 ]]; then
         CORNER='+'
     elif [[ -z $4 ]] && [[ ! -z $2 ]]; then
-        CORNER=$(echo $DASH)
+        CORNER="$DASH"
     fi
 
     CHARS=${#NAME}
     CHARSC=$(( CHARS - 2 ))
     WIDTH=$(( CHARSC + OFFSET * 2 ))
 
-    printf $CORNER
+    printf "%s" "$CORNER"
     repeat $DASH $WIDTH
-    printf $CORNER
+    printf "%s" "$CORNER"
     printf '\n'
-    printf $SIDE
+    printf "%s" "$SIDE"
     repeat ' ' $(( OFFSET - 1 ))
-    printf "$NAME"
+    printf "%s" "$NAME"
     repeat ' ' $(( OFFSET - 1 ))
-    printf $SIDE
+    printf "%s" "$SIDE"
     printf '\n'
-    printf $CORNER
+    printf "%s" "$CORNER"
     repeat $DASH $WIDTH
-    printf $CORNER
+    printf "%s" "$CORNER"
     printf '\n'
     echo
 }
@@ -852,14 +856,14 @@ menu(){
                 # Searches the owners of incoming connection IP addresses via WHOIS lookup greps.
                 # Uses a list length of 100 by default.
                 title "Search IP Owners"
-                read -p "Top [X] by flow [100]: (q to quit)" SIOX
+                read -rp "Top [X] by flow [100]: (q to quit)" SIOX
                 if [[ -z $SIOX ]]; then
                     SIOX=100
                 elif [[ $SIOX == "q" ]]; then
                     menu
                 fi
                 echo "Example: VeriTeknik (q to quit)"
-                read -p "Search term: " SIOSEARCH
+                read -rp "Search term: " SIOSEARCH
                 if [[ $SIOSEARCH == "q" ]]; then
                     menu
                 fi
@@ -898,4 +902,4 @@ main(){
     menu
 }
 
-main $@
+main "$@"
